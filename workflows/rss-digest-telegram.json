@@ -1,0 +1,111 @@
+{
+  "name": "RSS daily digest to Telegram",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "name": "Every day",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://hnrss.org/frontpage",
+        "options": {}
+      },
+      "name": "Read RSS",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build one HTML digest from the newest RSS items. Change MAX to taste.\nconst MAX = 10;\nconst items = $input.all().slice(0, MAX);\nif (!items.length) return [];\nconst esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nconst lines = items.map((it, i) => `${i + 1}. <a href=\"${esc(it.json.link)}\">${esc(it.json.title)}</a>`);\nreturn [{ json: { text: `<b>Daily digest</b> (${items.length})\\n\\n${lines.join('\\n')}` } }];\n"
+      },
+      "name": "Build digest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID || 'REPLACE_CHAT_ID' }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "name": "Send to Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        660,
+        0
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "REPLACE_ME",
+          "name": "your credential"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every day": {
+      "main": [
+        [
+          {
+            "node": "Read RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read RSS": {
+      "main": [
+        [
+          {
+            "node": "Build digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build digest": {
+      "main": [
+        [
+          {
+            "node": "Send to Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

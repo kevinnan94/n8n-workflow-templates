@@ -1,0 +1,117 @@
+{
+  "name": "Website change monitor to Telegram",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "name": "Every hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://example.com/pricing",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "name": "Fetch page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Keep a hash of the last seen content in workflow static data.\n// Emits one item only when the content changed since the previous run.\nconst crypto = require('crypto');\nconst body = typeof $json.data === 'string' ? $json.data : JSON.stringify($json);\nconst hash = crypto.createHash('sha256').update(body).digest('hex');\nconst store = $getWorkflowStaticData('global');\nconst changed = store.lastHash !== undefined && store.lastHash !== hash;\nconst first = store.lastHash === undefined;\nstore.lastHash = hash;\nif (first || !changed) return [];\nreturn [{ json: { hash, checkedAt: new Date().toISOString(), preview: body.slice(0, 300) } }];\n"
+      },
+      "name": "Changed since last run?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID || 'REPLACE_CHAT_ID' }}",
+        "text": "=<b>Page changed</b>\n{{ $json.checkedAt }}\n\n<code>{{ $json.preview }}</code>",
+        "additionalFields": {
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "name": "Send to Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        660,
+        0
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "REPLACE_ME",
+          "name": "your credential"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every hour": {
+      "main": [
+        [
+          {
+            "node": "Fetch page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch page": {
+      "main": [
+        [
+          {
+            "node": "Changed since last run?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Changed since last run?": {
+      "main": [
+        [
+          {
+            "node": "Send to Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

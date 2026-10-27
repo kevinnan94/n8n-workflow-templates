@@ -1,0 +1,111 @@
+{
+  "name": "GitHub release watcher to Telegram",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "name": "Every 6 hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.github.com/repos/n8n-io/n8n/releases/latest",
+        "options": {}
+      },
+      "name": "Latest release",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Notify once per new GitHub release (tag stored in static data).\nconst store = $getWorkflowStaticData('global');\nconst tag = $json.tag_name;\nif (!tag || store.lastTag === tag) return [];\nconst isFirst = store.lastTag === undefined;\nstore.lastTag = tag;\nif (isFirst) return [];\nreturn [{ json: { tag, name: $json.name || tag, url: $json.html_url, published: $json.published_at } }];\n"
+      },
+      "name": "New release?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID || 'REPLACE_CHAT_ID' }}",
+        "text": "=<b>New release: {{ $json.name }}</b>\n{{ $json.url }}",
+        "additionalFields": {
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "name": "Send to Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        660,
+        0
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "REPLACE_ME",
+          "name": "your credential"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 6 hours": {
+      "main": [
+        [
+          {
+            "node": "Latest release",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Latest release": {
+      "main": [
+        [
+          {
+            "node": "New release?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New release?": {
+      "main": [
+        [
+          {
+            "node": "Send to Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}
